@@ -99,8 +99,8 @@ def cal_iou(b1, b2, device, Diou=False, Ciou=False, detail=False):
         # 计算对角线距离
         enclose_diagonal = torch.sum(enclose_wh.pow(2), dim=-1).to(device)
         rd = center_distance / torch.max(enclose_diagonal, eps)
-        re_w = torch.sqrt(torch.abs(b1[..., 2].pow(2) - b2[..., 2].pow(2))) / enclose_wh[..., 0]
-        re_h = torch.sqrt(torch.abs(b1[..., 3].pow(2) - b2[..., 3].pow(2))) / enclose_wh[..., 1]
+        # re_w = torch.sqrt(torch.abs(b1[..., 2].pow(2) - b2[..., 2].pow(2))) / enclose_wh[..., 0]
+        # re_h = torch.sqrt(torch.abs(b1[..., 3].pow(2) - b2[..., 3].pow(2))) / enclose_wh[..., 1]
 
         diou = iou - rd
 

@@ -25,7 +25,76 @@ from config.yolov4_config import TRAIN, MODEL, VAL, DETECT
 from utils.yolo_utils import get_classes, get_anchors, non_max_suppression
 from torch.utils.data.dataloader import DataLoader
 from dataset.datasets import DETECT_IMG
-from cal_camera_cors import resize
+
+
+def resize(image, size):
+    '''
+    :param frame: 帧
+    :param size: yolo输入尺寸
+    :return:
+    '''
+
+    image = image.numpy()
+    ih, iw, _ = image.shape
+
+    # new_image = cv2.resize(image, (w, h))
+    # #normalized (0, 1)
+
+    new_image = cv2.resize(image, (size, size))
+
+    new_image = new_image / 255.0
+
+    new_image = torch.tensor(new_image).permute(2, 0, 1).float()
+
+    return new_image
+
+
+def detect_images(img,
+                  model,
+                  device,
+                  batch_size,
+                  anchors,
+                  strides,
+                  class_names,
+                  detect_img_size,
+                  img_path,
+                  weights_path,
+                  conf_thres,
+                  nms_thres):
+
+    model.load_state_dict(torch.load(weights_path), True)
+    model.eval()
+
+    new_img = resize(img, detect_img_size)
+
+    new_img = new_img.to(device)
+
+    _, prediction = model(new_img)
+
+    boxes, classes = non_max_suppression(prediction, conf_thres, nms_thres)
+
+    if len(boxes):
+        detected_img = cv2.imread(p[0])
+
+        h = detected_img.shape[0]
+        w = detected_img.shape[1]
+
+        boxes[..., 0] *= w
+        boxes[..., 1] *= h
+        boxes[..., 2] *= w
+        boxes[..., 3] *= h
+        boxes = boxes[..., :4].int()
+
+        for i in range(len(boxes)):
+            detected_img = cv2.rectangle(detected_img,
+                                         (boxes[i, 0], boxes[i, 1]),
+                                         (boxes[i, 2], boxes[i, 3]),
+                                         (0, 255, 0), 2)
+        return detected_img
+    else:
+        print("未检测到目标...")
+        return []
+
 
 if __name__ == "__main__":
 
@@ -45,6 +114,8 @@ if __name__ == "__main__":
     conf_thres = DETECT["CONF_THRES"]
     nms_thres = DETECT["NMS_THRES"]
 
+    print("\nPerforming object detection:")
+
     model = YOLO4(batch_size=1,
                   num_classes=num_classes,
                   num_bbparas=4,
@@ -58,46 +129,62 @@ if __name__ == "__main__":
     root_path = './weights/output/'
     w_list = os.listdir(root_path)
 
-    for weights in w_list:
+    for w in w_list:
 
-        model.load_state_dict(torch.load(weights), True)
-        print(root_path+weights)
+        model.load_state_dict(torch.load(weights_path), True)
 
         model.eval()
 
-        img = cv2.imread('./devs/IMG_5428.JPG')
-        img = resize(img, detect_img_size)
+        list = os.listdir('./data/Test_I/')
+        # print(list)
 
-        img = torch.from_numpy(img).permute(2, 0, 1).unsqueeze(0).to(device).float()
+        for l in range(len(list)):
 
-        _, prediction = model(img)
+            if l >= 30:
+                break
 
-        boxes, classes = non_max_suppression(prediction, conf_thres, nms_thres)
+            path = './data/Test_I/' + list[l]
 
-        detected_img = cv2.imread(img_path)
+            dataset = DETECT_IMG(path, img_size=detect_img_size)
+            dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
 
-        w = detected_img.shape[0]
-        h = detected_img.shape[1]
+            prev_time = time.time()
 
-        boxes[..., 0] *= w
-        boxes[..., 1] *= h
-        boxes[..., 2] *= w
-        boxes[..., 3] *= h
-        boxes = boxes[..., :4].int()
-        boxes = boxes.int().cpu().numpy()
+            for batch_i, (p, img) in enumerate(dataloader):
 
-        for i in range(len(boxes)):
-            detected_img = cv2.rectangle(detected_img.copy(),
-                                         (boxes[i, 0], boxes[i, 1]),
-                                         (boxes[i, 2], boxes[i, 3]),
-                                         (0, 255, 0), 2)
-            # detected_img = cv2.rectangle(detected_img,
-            #                              (test01_box[0], test01_box[1]),
-            #                              (test01_box[2], test01_box[3]),
-            #                              (0, 0, 255), 2)
+                img = img.to(device)
 
-        cv2.imwrite('./devs/xxx.jpg', detected_img)
-        # cv2.imshow('xxx', detected_img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+                with torch.no_grad():
+                    _, prediction = model(img)
+
+                    boxes, cls_id = non_max_suppression(prediction, conf_thres, nms_thres)
+
+                if len(boxes):
+                    detected_img = cv2.imread(p[0])
+
+                    h = detected_img.shape[0]
+                    w = detected_img.shape[1]
+
+                    boxes[..., 0] *= w
+                    boxes[..., 1] *= h
+                    boxes[..., 2] *= w
+                    boxes[..., 3] *= h
+                    boxes = boxes[..., :4].int()
+
+                    for i in range(len(boxes)):
+                        c = int(cls_id[i, 0].item())
+
+                        detected_img = cv2.rectangle(detected_img,
+                                                     (boxes[i, 0], boxes[i, 1]),
+                                                     (boxes[i, 2], boxes[i, 3]),
+                                                     (0, 255, 0), 2)
+
+                        detected_img = cv2.putText(detected_img, class_names[c],
+                                                   (boxes[i, 0] - 2, boxes[i, 1] - 2),
+                                                   cv2.FONT_HERSHEY_TRIPLEX, 2, (255, 0, 0), 2)
+
+                    cv2.imwrite('./devs/' + str(l) + '.jpg', detected_img)
+                else:
+                    print(p)
+
 

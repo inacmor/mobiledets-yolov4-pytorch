@@ -81,7 +81,7 @@ def convert(img, contrast, bri_low, bri_up):
     return img
 
 
-def background_mix(img, box, clips, index, batchsize):
+def background_cutmix(img, box, clips, index, batchsize):
     backup = img.copy()
 
     size = img.shape[0]

@@ -21,12 +21,9 @@ from torch.autograd import Variable
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
-import argparse
+
 import os
 import time
-import datetime
-import math
-import random
 
 from utils.yolo_utils import get_classes, get_anchors, Logger
 from dataset.datasets import YOLO4Dataset, generate_groundtruth, get_val
@@ -175,8 +172,6 @@ if __name__ == "__main__":
                                                   print_loss=False
                                                   )
 
-                # (ciou_ls, i_ls, d_ls, c_ls) = ciou_detail
-
                 if batch_i < len(frozen_dataloader) - batch_val:
                     loss.backward()
 
@@ -224,15 +219,6 @@ if __name__ == "__main__":
     else:
         freeze_epochs = 0
 
-    # dataloader = DataLoader(
-    #     dataset,
-    #     batch_size=batch_size,
-    #     shuffle=True,
-    #     num_workers=TRAIN["NUMBER_WORKERS"],
-    #     pin_memory=True,
-    #     collate_fn=dataset.collate_fn
-    # )
-
     # Initiate model
     model = YOLO4(batch_size=batch_size,
                   num_classes=num_classes,
@@ -241,8 +227,6 @@ if __name__ == "__main__":
                   stride=strides,
                   freeze=False
                   ).to(device)
-
-    # model = Build_Model().to(device)
 
     # #使用预训练权重
     if frozen:
@@ -285,11 +269,6 @@ if __name__ == "__main__":
         mloss = 0.
         val_loss = 0.
 
-        rd = 0
-        re = 0
-        c_loss = 0
-        rad = 45 * math.pi / 180
-
         # model.train()
         start_time = time.time()
 
@@ -322,10 +301,6 @@ if __name__ == "__main__":
 
             loss.backward()
 
-            # optimizer.step()
-            # scheduler.step(epoch + batch_i / len(train_dataloader))
-            # model.zero_grad()
-
             accum_count = accum_count + 1
             # if accum_count == accumulation or batch_i == len(dataloader) - batch_val - 1:
             if accum_count == accumulation or batch_i == len(imgs) - 1:
@@ -337,13 +312,6 @@ if __name__ == "__main__":
             with torch.no_grad():
                 mloss = ((mloss * batch_i + loss.item()) / (batch_i + 1))
 
-                ciou_ls, i_ls, d_ls, e_ls = ciou_detail
-
-                val_loss = ((val_loss * batch_i + loss.item()) / (batch_i + 1))
-                rd = ((rd * batch_i + d_ls.item()) / (batch_i + 1))
-                re = ((re * batch_i + e_ls.item()) / (batch_i + 1))
-                c_loss = ((c_loss * batch_i + ciou_ls.item()) / (batch_i + 1))
-
             logger.info("=== Epoch:[{:3}/{}],step:[{:3}/{}],train_loss:{:.4f},val_loss:{:.4f},lr:{:.10f}".format(
                 epoch + freeze_epochs,
                 epochs + freeze_epochs,
@@ -354,46 +322,6 @@ if __name__ == "__main__":
                 optimizer.param_groups[-1]['lr'],
             )
             )
-
-        if (epoch + 1) % 2 == 0:
-
-            if math.isnan(c_loss):
-                continue
-            else:
-                if epoch <= 100:
-                    if random.random() > 0.9:
-                        random_decay_d = random.uniform(0.98, 1.02)
-                        random_decay_c = random.uniform(0.98, 1.02)
-                    else:
-                        random_decay_d = 1
-                        random_decay_c = 1
-                else:
-                    random_decay_d = 1
-                    random_decay_c = 1
-                x = 100 * math.sin(0.25 * math.pi + (epoch + 1) * math.pi / 1200)
-                show_loss.append(mloss)
-                show_epoch.append(epoch)
-
-                print("loca_loss:" + str(c_loss * 100) + "||diou:" + str((1 - math.sqrt(rd)) * x * random_decay_d) + "||eiou:" + str(
-                    (1 - math.sqrt(re)) * x * random_decay_c))
-
-                show_diou.append((1 - math.sqrt(rd)) * x * random_decay_d)
-                show_ciou.append((1 - math.sqrt(re)) * x * random_decay_c)
-                show_loca.append(c_loss * 100)
-
-                plt.cla()
-
-                plt.xlim(0, epochs + freeze_epochs)
-                plt.ylim(0, 100)
-
-                # plt.plot(show_epoch, show_loss)
-                plt.plot(show_epoch, show_diou, color="blue")
-                plt.plot(show_epoch, show_ciou, color="green")
-                plt.plot(show_epoch, show_loca, color="red")
-
-                # plt.scatter(show_epoch, show_loss, marker='o', s=3)
-                # plt.plot(epoch, mloss.item())
-                plt.show()
 
         with torch.no_grad():
             model.eval()
@@ -422,12 +350,7 @@ if __name__ == "__main__":
                                                   print_loss=False
                                                   )
 
-                ciou_ls, i_ls, d_ls, e_ls = ciou_detail
-
                 val_loss = ((val_loss * batch_i + loss.item()) / (batch_i + 1))
-                rd = ((rd * batch_i + d_ls.item()) / (batch_i + 1))
-                re = ((re * batch_i + e_ls.item()) / (batch_i + 1))
-                c_loss = ((c_loss * batch_i + ciou_ls.item()) / (batch_i + 1))
 
                 logger.info("=== Epoch:[{:3}/{}],step:[{:3}/{}],train_loss:{:.4f},val_loss:{:.4f},lr:{:.10f}".format(
                     epoch + freeze_epochs,
@@ -444,30 +367,18 @@ if __name__ == "__main__":
             print("====weights saved...====")
             torch.save(model.state_dict(), saved_path + "epoch{}__loss{:.2f}.pth".format(epoch + freeze_epochs, mloss))
 
-        # if (epoch + 1) % 2 == 0:
-        #
-        #     show_loss.append(mloss)
-        #     show_epoch.append(epoch)
-        #
-        #     print("loca_loss:" + str(c_loss * 100) + "||diou:" + str((1 - math.sqrt(rd)) * 60) + "||eiou:" + str((1 - math.sqrt(re)) * 60))
-        #
-        #     show_diou.append((1 - math.sqrt(rd)) * 60)
-        #     show_ciou.append((1 - math.sqrt(re)) * 60)
-        #     show_loca.append(c_loss * 100)
-        #
-        #     plt.cla()
-        #
-        #     plt.xlim(0, epochs + freeze_epochs)
-        #     plt.ylim(0, 100)
-        #
-        #     # plt.plot(show_epoch, show_loss)
-        #     plt.plot(show_epoch, show_diou, color="blue")
-        #     plt.plot(show_epoch, show_ciou, color="green")
-        #     plt.plot(show_epoch, show_loca, color="red")
-        #
-        #     # plt.scatter(show_epoch, show_loss, marker='o', s=3)
-        #     # plt.plot(epoch, mloss.item())
-        #     plt.show()
+        if (epoch + 1) % 3 == 0:
+
+            show_loss.append(mloss)
+
+            plt.cla()
+
+            plt.xlim(0, epochs + freeze_epochs)
+            plt.ylim(0, 20)
+
+            plt.plot(show_epoch, show_loss)
+            # plt.scatter(show_epoch, show_loss, marker='o', s=3)
+            plt.show()
 
         # #清除不必要的缓存
         torch.cuda.empty_cache()
@@ -478,14 +389,3 @@ if __name__ == "__main__":
             # save model parameters
             print("====last weights saved...====")
             torch.save(model.state_dict(), saved_path + "last_weights.pth")
-
-            # print(imgs.size())
-            # print(boxes)
-
-            # logger.info(" === |loss_ciou:{:.4f}|loss_conf:{:.4f}|loss_cls:{:.4f}|loss_xy:{:.4f}|".format(
-            #             loss_ciou,
-            #             loss_conf,
-            #             loss_cls,
-            #             xy_loss,
-            # ))
-
