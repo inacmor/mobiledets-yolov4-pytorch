@@ -13,11 +13,11 @@ The mobiledets model codes are mainly from https://github.com/novice03/mobiledet
 - step5: run train.py.
 
 ---Inference---
-step1: put your testset in data/Test_I.
-step2: run detect.py.
+- step1: put your testset in data/Test_I.
+- step2: run detect.py.
 The result will be ./devs.
 
 ---requirement---
-pytorch1.4.0.
-timm.
-tucker_conv.
+- pytorch1.4.0.
+- timm.
+- tucker_conv.
