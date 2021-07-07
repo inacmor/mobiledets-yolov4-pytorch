@@ -1,7 +1,7 @@
 # mobiledets-yolov4-pytorch
 This is an object detecting model based on yolov4.
 I replace the backbone to mobiledets:https://arxiv.org/abs/2004.14525.
-The mobiledets model codes are mainly from https://github.com/novice03/mobiledet-pytorch.git.
+The mobiledets model codes are mainly from https://github.com/novice03/mobiledet-pytorch.
 
 ---Train---
 step1: put your trainset and labels(xml) in data/Imgs and data/Annotations.
