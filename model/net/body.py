@@ -16,6 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 from model.net.backbone import Conv_BN_Act, Darknet53
+from model.net.mobiledet_gpu import MobileDetGPU
 
 
 class SPP(nn.Module):
@@ -221,7 +222,7 @@ class YOLOBODY(nn.Module):
     def __init__(self, anchors, num_bbparas, num_classes, freeze=False):
         super(YOLOBODY, self).__init__()
 
-        self.darknet53 = Darknet53(freeze=freeze)
+        self.darknet53 = MobileDetGPU(freeze=freeze)
         self.panup1 = PANUP1()
         self.five_d32 = FiveStr(inchannels=1024)
         self.outs1 = OUTPUT(in_channels=512,
@@ -262,38 +263,6 @@ class YOLOBODY(nn.Module):
         return [feats01, feats02, feats03]
 
 
-if __name__ == "__main__":
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = YOLOBODY(anchors=9, num_bbparas=4, num_classes=80)
-    a = torch.rand(2, 3, 608, 608) * 255
-    a = a.to(device)
-    model.to(device)
-    #
-    # tw.draw_model(model, a)
-
-    # y1, y2, y3 = model(a)
-    #
-    # print(y1.size())
-    # print(y2.size())
-    # print(y3.size())
-
-    y = model(a)
-    print(y[0].size())
-    print(y[1].size())
-    print(y[2].size())
-
-    # grid_x = np.expand_dims(np.expand_dims(
-    #     np.expand_dims(np.linspace(0, y1.size(3) - 1, y1.size(3)), axis=0).repeat(y1.size(2), 0), axis=0),
-    #                         axis=0)
-    # print(grid_x)
-    # print(grid_x.shape)
-    #
-    # grid_y = np.expand_dims(np.expand_dims(
-    #     np.expand_dims(np.linspace(0, y1.size(2) - 1, y1.size(2)), axis=1).repeat(y1.size(3), 1), axis=0),
-    #                         axis=0)
-    # print(grid_y)
-    # print(grid_y.shape)
 
 
 
