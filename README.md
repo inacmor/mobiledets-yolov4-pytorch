@@ -15,9 +15,10 @@ The mobiledets model codes are mainly from https://github.com/novice03/mobiledet
 ---Inference---
 - step1: put your testset in data/Test_I.
 - step2: run detect.py.
-The result will be ./devs.
+You can find the results in./devs.
 
 ---requirement---
 - pytorch1.4.0.
 - timm.
 - tucker_conv.
+- mish_cuda
