@@ -112,18 +112,6 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.5):
 
     prediction = prediction[prediction[..., 4] >= conf_thres]
 
-    x = prediction[:, 0].unsqueeze(-1)
-    y = prediction[:, 1].unsqueeze(-1)
-    w = prediction[:, 2].unsqueeze(-1)
-    h = prediction[:, 3].unsqueeze(-1)
-
-    x1 = x - w / 2
-    y1 = y - h / 2
-    x2 = x + w / 2
-    y2 = y + h / 2
-
-    prediction[:, 0:4] = torch.cat([x1, y1, x2, y2], dim=-1)
-
     if prediction[:, 3].size(0) == 0:
         print("未检测到目标...")
         return [], []
@@ -155,9 +143,38 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.5):
 
     if keep_boxes:
         keep_boxes = torch.cat(keep_boxes, dim=0)
+
+        x = keep_boxes[:, 0].unsqueeze(-1)
+        y = keep_boxes[:, 1].unsqueeze(-1)
+        w = keep_boxes[:, 2].unsqueeze(-1)
+        h = keep_boxes[:, 3].unsqueeze(-1)
+
+        x1 = x - w / 2
+        y1 = y - h / 2
+        x2 = x + w / 2
+        y2 = y + h / 2
+        keep_boxes[:, 0:4] = torch.cat([x1, y1, x2, y2], dim=-1)
         keep_cls = torch.cat(keep_cls, dim=0).unsqueeze(-1)
 
     return keep_boxes, keep_cls
+
+
+def xyxy2xywh(boxes):
+    if len(boxes) == 0:
+        return boxes
+    else:
+        x1 = boxes[:, 0]
+        y1 = boxes[:, 1]
+        x2 = boxes[:, 2]
+        y2 = boxes[:, 3]
+
+        w = x2 - x1
+        h = y2 - y1
+
+        x = x1 + w / 2
+        y = y1 + h / 2
+
+        return np.stack((x, y, w, h), axis=-1)
 
 
 if __name__ == "__main__":

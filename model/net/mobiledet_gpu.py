@@ -5,12 +5,23 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-from mish_cuda import MishCuda as Mish
+# from mish_cuda import MishCuda as Mish
 
 # class hswish(nn.Module):
 #     def forward(self, x):
 #         out = x * F.relu6(x + 3, inplace=True) / 6
 #         return out
+
+# #if mish_cuda is not avalible try whats below
+class Mish(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        device = x.device
+        x = x * (torch.tanh(F.softplus(x)))
+        x.to(device)
+        return x
 
 
 class Inverted_Bottleneck(nn.Module):
@@ -135,7 +146,7 @@ class MobileDetGPU(nn.Module):
         self.fused3 = Fused_IBN(64, 64)
         self.fused4 = Fused_IBN(64, 64)
         self.fused5 = Fused_IBN(64, 64, s=4)
-        self.ibn1 = Inverted_Bottleneck(64, 256, s=8)
+        self.ibn1 = Inverted_Bottleneck(64, 64, s=8)
 
         # Fourth block
         self.fused6 = Fused_IBN(64, 128, stride=2)
@@ -147,14 +158,14 @@ class MobileDetGPU(nn.Module):
         self.fused11 = Fused_IBN(128, 128)
         self.fused12 = Fused_IBN(128, 128)
         self.fused13 = Fused_IBN(128, 128)
-        self.ibn2 = Inverted_Bottleneck(128, 512, s=8)
+        self.ibn2 = Inverted_Bottleneck(128, 128, s=8)
 
         # Fifth block
         self.fused14 = Fused_IBN(128, 128, s=4, stride=2)
         self.fused15 = Fused_IBN(128, 128, s=4)
         self.fused16 = Fused_IBN(128, 128, s=4)
         self.fused17 = Fused_IBN(128, 128, s=4)
-        self.ibn3 = Inverted_Bottleneck(128, 1024, s=8)
+        self.ibn3 = Inverted_Bottleneck(128, 256, s=8)
 
     def forward(self, x):
 

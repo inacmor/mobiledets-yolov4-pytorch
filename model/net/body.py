@@ -114,7 +114,7 @@ class DOWNSAMPLE(nn.Module):
 # @torchsnooper.snoop()
 class PANUP1(nn.Module):
 
-    def __init__(self, in_channels=1024):
+    def __init__(self, in_channels):
         super(PANUP1, self).__init__()
 
         self.conv1 = Conv_BN_Act(in_channels, in_channels // 2, 1, 1, 'leaky')
@@ -148,7 +148,7 @@ class PANUP1(nn.Module):
 # @torchsnooper.snoop()
 class PANUP2(nn.Module):
 
-    def __init__(self, in_channels=512):
+    def __init__(self, in_channels):
         super(PANUP2, self).__init__()
 
         self.conv1 = Conv_BN_Act(in_channels, in_channels // 2, 1, 1, 'leaky')
@@ -173,19 +173,18 @@ class PANUP2(nn.Module):
 # @torchsnooper.snoop()
 class PANDOWN1(nn.Module):
 
-    def __init__(self, in_channels=256):
+    def __init__(self, in_channels):
         super(PANDOWN1, self).__init__()
 
         self.conv1 = Conv_BN_Act(in_channels, in_channels // 2, 1, 1, 'leaky')
         self.conv2 = FiveStr(in_channels)
-        self.down1 = DOWNSAMPLE(in_channels=128)
+        self.down1 = DOWNSAMPLE(in_channels // 2)
 
     def forward(self, x, up2):
 
         x = self.conv1(x)
 
         x = torch.cat([x, up2], 1)
-
         x = self.conv2(x)
 
         down1_input = x
@@ -196,17 +195,16 @@ class PANDOWN1(nn.Module):
 # @torchsnooper.snoop()
 class PANDOWN2(nn.Module):
 
-    def __init__(self):
+    def __init__(self, in_channels):
         super(PANDOWN2, self).__init__()
 
-        self.five_s = FiveStr(inchannels=512)
+        self.five_s = FiveStr(in_channels)
 
-        self.down2 = DOWNSAMPLE(in_channels=256)
+        self.down2 = DOWNSAMPLE(in_channels // 2)
 
     def forward(self, x, down1_output):
 
         x = torch.cat([x, down1_output], 1)
-
         x = self.five_s(x)
 
         down2_input = x
@@ -219,31 +217,30 @@ class PANDOWN2(nn.Module):
 # @torchsnooper.snoop()
 class YOLOBODY(nn.Module):
 
-    def __init__(self, anchors, num_bbparas, num_classes, freeze=False):
+    def __init__(self, in_channels, anchors, num_bbparas, num_classes, freeze=False):
         super(YOLOBODY, self).__init__()
 
-        self.darknet53 = MobileDetGPU(freeze=freeze)
-        self.panup1 = PANUP1()
-        self.five_d32 = FiveStr(inchannels=1024)
-        self.outs1 = OUTPUT(in_channels=512,
+        self.backbone = MobileDetGPU(freeze=freeze)
+        self.panup1 = PANUP1(in_channels)
+        self.five_d32 = FiveStr(in_channels)
+        self.outs1 = OUTPUT(in_channels // 2,
                             per_anchors=anchors // 3,
                             outs=num_bbparas + 1 + num_classes)
 
-        self.panup2 = PANUP2()
-        self.pandown2 = PANDOWN2()
-        self.convd16 = Conv_BN_Act(512, 256, 1, 1, 'leaky')
-        self.outs2 = OUTPUT(in_channels=256,
+        self.panup2 = PANUP2(in_channels // 2)
+        self.pandown1 = PANDOWN1(in_channels // 4)
+        self.outs2 = OUTPUT(in_channels // 4,
                             per_anchors=anchors // 3,
                             outs=num_bbparas + 1 + num_classes)
 
-        self.pandown1 = PANDOWN1()
-        self.outs3 = OUTPUT(in_channels=128,
+        self.pandown2 = PANDOWN2(in_channels // 2)
+        self.outs3 = OUTPUT(in_channels // 8,
                             per_anchors=anchors // 3,
                             outs=num_bbparas + 1 + num_classes)
 
     def forward(self, inputs, uptimes1=2, uptimes2=2):
 
-        darknet_out1, darknet_out2, darknet_out3 = self.darknet53(inputs)
+        darknet_out1, darknet_out2, darknet_out3 = self.backbone(inputs)
 
         d32, up1_output = self.panup1(darknet_out1, uptimes1)
 

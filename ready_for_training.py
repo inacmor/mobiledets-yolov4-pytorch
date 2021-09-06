@@ -27,7 +27,7 @@ classes = get_classes(classfilepath)
 
 
 def convert_annotation(image_id, list_file):
-    in_file = open('./data/Annotations/%s.xml'%(image_id))
+    in_file = open('./data/Annotations/%s.xml'%(image_id), 'rb')
     tree=ET.parse(in_file)
     root = tree.getroot()
 

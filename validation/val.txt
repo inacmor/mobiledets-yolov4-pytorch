@@ -1,0 +1,5 @@
+E:\git-repositories\mobiledets-yolov4-pytorch/data/Imgs/IMG_5434.jpg 981,1036,1277,1328,0
+E:\git-repositories\mobiledets-yolov4-pytorch/data/Imgs/IMG_5426.jpg 1670,809,2035,1175,0
+E:\git-repositories\mobiledets-yolov4-pytorch/data/Imgs/IMG_5428.jpg 1946,1750,2295,2084,0
+E:\git-repositories\mobiledets-yolov4-pytorch/data/Imgs/IMG_5523.jpg 1036,1200,1386,1542,0
+E:\git-repositories\mobiledets-yolov4-pytorch/data/Imgs/IMG_5455.jpg 2135,898,2457,1216,0

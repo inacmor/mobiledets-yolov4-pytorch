@@ -370,6 +370,7 @@ if __name__ == "__main__":
         if (epoch + 1) % 3 == 0:
 
             show_loss.append(mloss)
+            show_epoch.append(epoch)
 
             plt.cla()
 

@@ -17,11 +17,9 @@ from model.loss import yolo4_loss
 from model.net.head import YOLO_head
 from model.net.body import YOLOBODY
 from dataset.datasets import resize_image, generate_groundtruth
-import os
 import cv2
 import numpy as np
 import time
-
 
 class YOLO4(nn.Module):
 
@@ -39,7 +37,7 @@ class YOLO4(nn.Module):
         super(YOLO4, self).__init__()
         self.inference = inference
 
-        self.yolobody = YOLOBODY(anchors=len(anchors) * 3, num_bbparas=num_bbparas, num_classes=num_classes, freeze=freeze)
+        self.yolobody = YOLOBODY(in_channels=256, anchors=len(anchors) * 3, num_bbparas=num_bbparas, num_classes=num_classes, freeze=freeze)
         self.yolo_1 = YOLO_head(batch_size, num_classes, anchors[2], stride[2], num_bbparas, inference)
         self.yolo_2 = YOLO_head(batch_size, num_classes, anchors[1], stride[1], num_bbparas, inference)
         self.yolo_3 = YOLO_head(batch_size, num_classes, anchors[0], stride[0], num_bbparas, inference)
@@ -82,20 +80,26 @@ if __name__ == "__main__":
 
     model = YOLO4(batch_size, num_classes, num_bbparas, anchors, stride).to(device)
     model.load_state_dict(torch.load(weight_path), False)
+    model.eval()
 
     start = time.time()
 
-    for i in range(10):
-        c1, c2, c3 = model(img)
+    f, y = model(img)
+    print(f[0].size())
+    print(f[1].size())
+    print(f[2].size())
 
-        # print(c1.size())
-        # print(c2.size())
-        # print(c3.size())
-        # print(c4.size())
-        # print(c5.size())
-        end = time.time()
-
-        print(end - start)
+    # for i in range(10):
+    #     c1, c2, c3 = model(img)
+    #
+    #     # print(c1.size())
+    #     # print(c2.size())
+    #     # print(c3.size())
+    #     # print(c4.size())
+    #     # print(c5.size())
+    #     end = time.time()
+    #
+    #     print(end - start)
 
 
 
