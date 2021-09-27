@@ -2,21 +2,19 @@
 This is an object detecting model based on yolov4.
 
 I replace the backbone to mobiledets:https://arxiv.org/abs/2004.14525.
+(updated 20210927: add res_block and csp block to backbone. So now we can call it CSPmobiledets-yolov4 I think.)
 
 ---Train---
 - step1: put your trainset and labels(xml) in data/Imgs and data/Annotations.
 - step2: put your pretrained .pth in weights/pretrained.
-- step3: run ready_for_training.py.
-- step4: run kmeans.py.
-- step5: run train.py.
+- step3: run 'python ready.py'.
+- step4: run 'python kmeans.py'.
+- step5: run 'python train.py'.
 
 ---Inference---
 - step1: put your testset in data/Test_I.
-- step2: run detect.py.
-You can find the results in./devs.
+- (if pictures)step2: run 'python pic_detect.py';You can find the results in./devs.
+- (if videos)step2: run 'python vision_test.py'.
 
 ---requirement---
-- pytorch1.4.0.
-- timm.
-- tucker_conv.
-- mish_cuda
+- pytorch1.7.0.(https://pytorch.org/get-started/previous-versions/)
