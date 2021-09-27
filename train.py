@@ -21,9 +21,11 @@ from torch.autograd import Variable
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
+from apex import amp
 
 import os
 import time
+import sys
 
 from utils.yolo_utils import get_classes, get_anchors, Logger
 from dataset.datasets import YOLO4Dataset, generate_groundtruth, get_val
@@ -32,17 +34,23 @@ from torch.utils.data.dataloader import DataLoader
 from config.yolov4_config import TRAIN, VAL, MODEL, LR, DA
 from model.loss import yolo4_loss
 from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR
+from utils.train_supports import initialize_train_model
 
 
-if __name__ == "__main__":
+def get_inputs(freeze, frozen=False, apex_speedup=False):
 
-    log_file = MODEL["LOG_PATH"] + 'logs.txt'
-    logger = Logger(log_file).get_log()
+    if freeze:
+        epochs = TRAIN["FREEZE_EPOCHS"]
+        batch_size = TRAIN["BATCH_SIZE"] * 4
+        lr = TRAIN["LR_WARMUP"]
+
+    else:
+        epochs = TRAIN["YOLO_EPOCHS"]
+        batch_size = TRAIN["BATCH_SIZE"]
+        lr = TRAIN["LR_INIT"]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    epochs = TRAIN["YOLO_EPOCHS"]
-    batch_size = TRAIN["BATCH_SIZE"]
     anchors = get_anchors(MODEL["ANCHOR_PATH"]).to(device)
     strides = torch.tensor(MODEL["STRIDES"]).to(device)
 
@@ -53,29 +61,20 @@ if __name__ == "__main__":
     train_img_size = TRAIN["TRAIN_IMG_SIZE"]
     class_names = get_classes(MODEL["CLASS_PATH"])
     num_classes = len(class_names)
-    pretrained = TRAIN["PRE_TRAIN"]
-    pretrained_weights = TRAIN["PRE_TRAIN_W"]
+
     accumulation = TRAIN["GD_ACCUM"]
-    warmup_lr = TRAIN["LR_WARMUP"]
-    learning_rate = TRAIN["LR_INIT"]
+    saved_epoch = TRAIN["SAVE_EPOCH"]
     saved_path = MODEL["WEIGHTS_SAVED_PATH"]
-    freeze = TRAIN["FREEZE"]
+    if not frozen:
+        pretrained_weights = TRAIN["PRE_TRAIN_W"]
+    else:
+        pretrained_weights = saved_path + "frozen_weights.pth"
+
     val_index = VAL["VAL_INDEX"]
 
-    show_loss = []
-    show_epoch = []
-    y_limit = 0.
-
-    show_diou = []
-    show_ciou = []
-    show_loca = []
-
     # #余弦退火超参
-    freeze_lr = LR["FREEZE_LR"]
-    lr_mode = LR["LR_MODE"]
     t_0 = LR["T_0"]
     t_muti = LR["T_MUTI"]
-    ts = LR["TS"]
 
     data_aug = DA["DATA_AUG"]
     aug_paras = {
@@ -85,186 +84,66 @@ if __name__ == "__main__":
         "bri_up": DA["BRI_UP"]
     }
 
-    # Get dataloader
-    dataset = YOLO4Dataset(train_path=path, img_size=train_img_size, aug_paras=aug_paras, data_aug=data_aug)
-
-    frozen = False
-    # #freeze the backbone
-    if freeze:
-        print("===========开始冻结训练===========")
-        # print("===========freeze the backbone, start to train the rest ===========")
-        freeze_epochs = TRAIN["FREEZE_EPOCHS"]
-        freeze_bs = batch_size * 4
-
-        frozen_dataloader = DataLoader(
-            dataset,
-            batch_size=freeze_bs,
-            shuffle=True,
-            num_workers=TRAIN["NUMBER_WORKERS"],
-            pin_memory=True,
-            collate_fn=dataset.collate_fn
-        )
-
-        # #交叉验证
-        batch_val = int(val_index * len(frozen_dataloader)) + 1
-
-        # Initiate model
-        freeze_model = YOLO4(batch_size=freeze_bs,
-                      num_classes=num_classes,
-                      num_bbparas=4,
-                      anchors=anchors,
-                      stride=strides,
-                      freeze=freeze
-                      ).to(device)
-
-        freeze_model.load_state_dict(torch.load(pretrained_weights), strict=False)
-
-        # #初始化优化器
-        fre_optimizer = torch.optim.Adam(freeze_model.parameters(),
-                                     lr=warmup_lr,
-                                     weight_decay=TRAIN["WEIGHT_DECAY"]
-                                     )
-
-        # #学习率调整策略：余弦退火
-        if freeze_lr == 'cosineAnn':
-            fre_scheduler = CosineAnnealingLR(fre_optimizer, T_max=5, eta_min=0)
-        elif freeze_lr == 'cosineAnnWarm':
-            fre_scheduler = CosineAnnealingWarmRestarts(fre_optimizer, T_0=freeze_epochs, T_mult=1)
-        elif freeze_lr == 'steplr':
-            fre_scheduler = StepLR(fre_optimizer, step_size=(freeze_epochs * (len(frozen_dataloader) - 2)), gamma=0.1)
-
-        for epoch in range(freeze_epochs):
-
-            # mloss = torch.zeros(1).to(device)
-            mloss = 0.
-            val_loss = 0.
-
-            freeze_model.train()
-            start_time = time.time()
-
-            accum_count = 0
-
-            for batch_i, (x, imgs, boxes) in enumerate(frozen_dataloader):
-
-                batches_done = len(frozen_dataloader) * epoch + batch_i
-
-                imgs = imgs.to(device)
-                # print(x)
-                # print(imgs[0, :])
-
-                feats, yolos = freeze_model(imgs)
-
-                ground_truth = generate_groundtruth(boxes,
-                                                        device,
-                                                        input_size=train_img_size,
-                                                        anchors=anchors,
-                                                        stride=strides,
-                                                        num_classes=num_classes)
-
-                loss, _, ciou_detail = yolo4_loss(feats,
-                                                  yolos,
-                                                  ground_truth,
-                                                  anchors,
-                                                  num_classes,
-                                                  strides,
-                                                  ignore_thresh=.5,
-                                                  label_smoothing=False,
-                                                  print_loss=False
-                                                  )
-
-                if batch_i < len(frozen_dataloader) - batch_val:
-                    loss.backward()
-
-                    with torch.no_grad():
-                        mloss = ((mloss * batch_i + loss.item()) / (batch_i + 1))
-
-                    accum_count = accum_count + 1
-                    if accum_count == accumulation:
-                        fre_optimizer.step()
-                        fre_scheduler.step()
-                        freeze_model.zero_grad()
-                        accum_count = 0
-                    elif batch_i == len(frozen_dataloader) - batch_val - 1:
-                        fre_optimizer.step()
-                        fre_scheduler.step()
-                        freeze_model.zero_grad()
-                        accum_count = 0
-                else:
-                    with torch.no_grad():
-                        freeze_model.eval()
-                        val_i = batch_i - len(frozen_dataloader) + batch_val
-                        val_loss = ((val_loss * val_i + loss.item()) / (val_i + 1))
-
-                logger.info("=== Epoch:[{:3}/{}],step:[{:3}/{}],total_loss:{:.2f},val_loss:{:.2f},lr:{:.8f}".format(
-                    epoch,
-                    freeze_epochs,
-                    batch_i,
-                    len(frozen_dataloader) - 1,
-                    mloss,
-                    val_loss,
-                    fre_optimizer.param_groups[-1]['lr'],
-                )
-                )
-
-            if epoch == freeze_epochs - 1:
-                # save model parameters
-                print("====frozen weights saved...====")
-                torch.save(freeze_model.state_dict(), saved_path + "frozen_weights.pth")
-
-            # #清除不必要的缓存
-            torch.cuda.empty_cache()
-            end_time = time.time()
-            frozen = True
-            logger.info("  ===cost time:{:.4f}s".format(end_time - start_time))
-    else:
-        freeze_epochs = 0
-
-    # Initiate model
+    # #initiate model
     model = YOLO4(batch_size=batch_size,
                   num_classes=num_classes,
                   num_bbparas=4,
                   anchors=anchors,
                   stride=strides,
-                  freeze=False
+                  freeze=freeze
                   ).to(device)
+    model.load_state_dict(torch.load(pretrained_weights), strict=False)
 
-    # #使用预训练权重
-    if frozen:
-        print("===========冻结训练完成，开始正式训练...===========")
-        # print("===========f_training completed, start to train all parameters===========")
-        model.load_state_dict(torch.load(saved_path + "frozen_weights.pth"), True)
-    else:
-        print("===========继续之前训练...===========")
-        # print("===========from previous frozen weights...===========")
-        model.load_state_dict(torch.load(saved_path + "frozen_weights.pth"), True)
-
-    # #初始化优化器
     optimizer = torch.optim.Adam(model.parameters(),
-                                 lr=learning_rate,
+                                 lr=lr,
                                  weight_decay=TRAIN["WEIGHT_DECAY"]
                                  )
 
-    # #学习率调整策略：余弦退火
-    if lr_mode == 'cosineAnn':
-        scheduler = CosineAnnealingLR(optimizer, T_max=5, eta_min=0)
-    elif lr_mode == 'cosineAnnWarm':
+    train_dataloader, val_dataloader = get_val(path=path,
+                                               train_path=train_path,
+                                               val_path=val_path,
+                                               val_index=val_index,
+                                               epochs=epochs,
+                                               train_img_size=train_img_size,
+                                               batch_size=batch_size,
+                                               num_workers=TRAIN["NUMBER_WORKERS"],
+                                               aug_paras=aug_paras,
+                                               data_aug=data_aug
+                                               )
+
+    if freeze:
+        scheduler = StepLR(optimizer, step_size=(epochs * (len(train_dataloader) - 2)), gamma=0.1)
+    else:
         scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=t_0, T_mult=t_muti)
 
-    # with torchsnooper.snoop():
+    if apex_speedup:
+        model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+
+    paras = [device,
+             epochs,
+             saved_epoch,
+             train_img_size,
+             anchors,
+             num_classes,
+             strides,
+             accumulation,
+             saved_path]
+
+    return paras, [train_dataloader, val_dataloader], model, [scheduler, optimizer]
+
+
+def train(freeze, paras, loaders, model, backs, logger, draw=True, apex_speedup=False):
+
+    # paras, loaders, model, backs = get_inputs()
+
+    device, epochs, saved_epoch, train_img_size, anchors, num_classes, strides, accumulation, saved_path = paras
+    train_dataloader, val_dataloader = loaders
+    scheduler, optimizer = backs
+
+    show_loss = []
+    show_epoch = []
 
     for epoch in range(epochs):
-
-        train_dataloader, val_dataloader = get_val(path=path,
-                                                   train_path=train_path,
-                                                   val_path=val_path,
-                                                   val_index=val_index,
-                                                   epochs=epochs,
-                                                   train_img_size=train_img_size,
-                                                   batch_size=batch_size,
-                                                   num_workers=TRAIN["NUMBER_WORKERS"],
-                                                   aug_paras=aug_paras,
-                                                   data_aug=data_aug
-                                                   )
 
         mloss = 0.
         val_loss = 0.
@@ -281,25 +160,23 @@ if __name__ == "__main__":
 
             feats, yolos = model(imgs)
 
-            ground_truth = generate_groundtruth(boxes,
-                                                             device,
-                                                                input_size=train_img_size,
-                                                                anchors=anchors,
-                                                                stride=strides,
-                                                                num_classes=num_classes)
+            ground_truth = generate_groundtruth(boxes, device, train_img_size, anchors, strides, num_classes)
 
-            loss, _, ciou_detail = yolo4_loss(feats,
-                                              yolos,
-                                              ground_truth,
-                                              anchors,
-                                              num_classes,
-                                              strides,
-                                              ignore_thresh=.5,
-                                              label_smoothing=False,
-                                              print_loss=False
-                                              )
+            loss = yolo4_loss(feats,
+                              yolos,
+                              ground_truth,
+                              anchors,
+                              num_classes,
+                              strides,
+                              ignore_thresh=.5,
+                              print_loss=False
+                              )
 
-            loss.backward()
+            if apex_speedup:
+                with amp.scale_loss(loss, optimizer) as scaled_loss:
+                    scaled_loss.backward()
+            else:
+                loss.backward()
 
             accum_count = accum_count + 1
             # if accum_count == accumulation or batch_i == len(dataloader) - batch_val - 1:
@@ -312,9 +189,9 @@ if __name__ == "__main__":
             with torch.no_grad():
                 mloss = ((mloss * batch_i + loss.item()) / (batch_i + 1))
 
-            logger.info("=== Epoch:[{:3}/{}],step:[{:3}/{}],train_loss:{:.4f},val_loss:{:.4f},lr:{:.10f}".format(
-                epoch + freeze_epochs,
-                epochs + freeze_epochs,
+            logger.info("=== Epoch:[{:3}/{}],step:[{:3}/{}],train_loss:{:.2f},val_loss:{:.2f},lr:{:.10f}".format(
+                epoch,
+                epochs,
                 batch_i,
                 len(val_dataloader) + len(train_dataloader) - 1,
                 mloss,
@@ -332,29 +209,23 @@ if __name__ == "__main__":
 
                 feats, yolos = model(imgs)
 
-                ground_truth = generate_groundtruth(boxes,
-                                                                 device,
-                                                                    input_size=train_img_size,
-                                                                    anchors=anchors,
-                                                                    stride=strides,
-                                                                    num_classes=num_classes)
+                ground_truth = generate_groundtruth(boxes, device, train_img_size, anchors, strides, num_classes)
 
-                loss, ioss_detail, ciou_detail = yolo4_loss(feats,
-                                                  yolos,
-                                                  ground_truth,
-                                                  anchors,
-                                                  num_classes,
-                                                  strides,
-                                                  ignore_thresh=.5,
-                                                  label_smoothing=False,
-                                                  print_loss=False
-                                                  )
+                loss = yolo4_loss(feats,
+                                  yolos,
+                                  ground_truth,
+                                  anchors,
+                                  num_classes,
+                                  strides,
+                                  ignore_thresh=.5,
+                                  print_loss=False
+                                  )
 
                 val_loss = ((val_loss * batch_i + loss.item()) / (batch_i + 1))
 
                 logger.info("=== Epoch:[{:3}/{}],step:[{:3}/{}],train_loss:{:.4f},val_loss:{:.4f},lr:{:.10f}".format(
-                    epoch + freeze_epochs,
-                    epochs + freeze_epochs,
+                    epoch,
+                    epochs,
                     batch_i + len(train_dataloader),
                     len(val_dataloader) + len(train_dataloader) - 1,
                     mloss,
@@ -363,23 +234,27 @@ if __name__ == "__main__":
                 )
                 )
 
-        if epoch % 30 == 0 and epoch != 0:
-            print("====weights saved...====")
-            torch.save(model.state_dict(), saved_path + "epoch{}__loss{:.2f}.pth".format(epoch + freeze_epochs, mloss))
+        if not freeze:
 
-        if (epoch + 1) % 3 == 0:
+            freeze_epochs = TRAIN["FREEZE_EPOCHS"]
 
-            show_loss.append(mloss)
-            show_epoch.append(epoch)
+            if epoch % 30 == 0 and epoch != 0:
+                print("====weights saved...====")
+                torch.save(model.state_dict(), saved_path + "epoch{}__loss{:.2f}.pth".format(epoch + freeze_epochs, mloss))
 
-            plt.cla()
+        if draw:
+            if (epoch + 1) % 3 == 0:
+                show_loss.append(mloss)
+                show_epoch.append(epoch)
 
-            plt.xlim(0, epochs + freeze_epochs)
-            plt.ylim(0, 20)
+                plt.cla()
 
-            plt.plot(show_epoch, show_loss)
-            # plt.scatter(show_epoch, show_loss, marker='o', s=3)
-            plt.show()
+                plt.xlim(0, epochs)
+                plt.ylim(0, 20)
+
+                plt.plot(show_epoch, show_loss)
+                # plt.scatter(show_epoch, show_loss, marker='o', s=3)
+                plt.show()
 
         # #清除不必要的缓存
         torch.cuda.empty_cache()
@@ -387,6 +262,37 @@ if __name__ == "__main__":
         logger.info("  ===cost time:{:.4f}s".format(end_time - start_time))
 
         if epoch == epochs - 1:
-            # save model parameters
-            print("====last weights saved...====")
-            torch.save(model.state_dict(), saved_path + "last_weights.pth")
+            if freeze:
+                print("====frozen weights saved...====")
+                torch.save(model.state_dict(), saved_path + "frozen_weights.pth")
+            else:
+                print("====last weights saved...====")
+                torch.save(model.state_dict(), saved_path + "last_weights.pth")
+
+
+if __name__ == "__main__":
+
+    freeze = TRAIN["FREEZE"]
+    log_file = MODEL["LOG_PATH"] + 'logs.txt'
+    logger = Logger(log_file).get_log()
+    paras, loaders, model, backs = get_inputs(freeze, frozen=False)
+
+    try:
+        if freeze:
+            print("================start================")
+            print("================warmming up================")
+            train(freeze, paras, loaders, model, backs, logger, draw=False)
+            print("================formal training================")
+            paras, loaders, model, backs = get_inputs(False, frozen=True)
+            train(False, paras, loaders, model, backs, logger, draw=True)
+        else:
+            print("================start================")
+            train(freeze, paras, loaders, model, backs, logger, draw=True)
+    except KeyboardInterrupt:
+        torch.save(model.state_dict(), 'INTERRUPTED.pth')
+        try:
+            sys.exit(0)
+        except SystemExit:
+            os._exit(0)
+
+

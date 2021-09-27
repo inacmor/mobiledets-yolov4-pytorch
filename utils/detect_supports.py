@@ -1,9 +1,9 @@
 #encoding=utf-8
 
 '''
-@Time          : 2020/12/22 15:59
+@Time          : 2021/09/01 10:00
 @Author        : Inacmor
-@File          : detect.py
+@File          : detect_supports.py
 @Noice         :
 @Modificattion :
     @Author    :
@@ -16,22 +16,19 @@ import torch
 import os
 import time
 import cv2
-
 import numpy as np
-import matplotlib.pyplot as plt
+
 
 from model.yolo4 import YOLO4
-from config.yolov4_config import TRAIN, MODEL, VAL, DETECT
+from config.yolov4_config import DETECT
 from utils.yolo_utils import get_classes, get_anchors, non_max_suppression
-from torch.utils.data.dataloader import DataLoader
-from dataset.datasets import DETECT_IMG
 
-def detect_images(img,
-                  model,
-                  device,
-                  detect_img_size,
-                  conf_thres,
-                  nms_thres):
+
+def predict(img, model, device):
+
+    detect_img_size = DETECT["DETECT_SIZE"]
+    conf_thres = DETECT["CONF_THRES"]
+    nms_thres = DETECT["NMS_THRES"]
 
     cls = get_classes('./data/classes.txt')
 
@@ -54,7 +51,7 @@ def detect_images(img,
         boxes[..., 1] *= h
         boxes[..., 2] *= w
         boxes[..., 3] *= h
-        boxes = boxes[..., :4].int()
+        boxes = (boxes[..., :4].int().cpu()).numpy()
 
         for i in range(len(boxes)):
 
@@ -75,23 +72,18 @@ def detect_images(img,
         return img
 
 
-if __name__ == "__main__":
+def initialize_model():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # device = torch.device("cpu")
 
-    batch_size = DETECT["BATCH_SIZE"]
     anchors = get_anchors(DETECT["ANCHOR_PATH"]).to(device)
     strides = torch.tensor(DETECT["STRIDES"]).to(device)
     # train_img_size = TRAIN["TRAIN_IMG_SIZE"]
     class_names = get_classes(DETECT["CLASS_PATH"])
     num_classes = len(class_names)
-    detect_img_size = DETECT["DETECT_SIZE"]
-    img_path = DETECT["IMG_PATH"]
 
     weights_path = DETECT["WEIGHT_PATH"]
-    conf_thres = DETECT["CONF_THRES"]
-    nms_thres = DETECT["NMS_THRES"]
 
     print("\nPerforming object detection:")
 
@@ -109,23 +101,5 @@ if __name__ == "__main__":
 
     model.eval()
 
-    list = os.listdir('./data/Test_A/')
-
-    for l in range(len(list)):
-
-        if l >= 30:
-            break
-
-        path = './data/Test_A/' + list[l]
-        print(path)
-
-        img = cv2.imread(path)
-        print(img.shape)
-
-        detected_img = detect_images(img, model, device, detect_img_size, conf_thres, nms_thres)
-
-        cv2.imwrite('./ssss/' + str(l) + '.jpg', detected_img)
-
-
-
+    return model, device
 

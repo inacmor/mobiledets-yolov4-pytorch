@@ -146,7 +146,6 @@ class MobileDetGPU(nn.Module):
         self.fused3 = Fused_IBN(64, 64)
         self.fused4 = Fused_IBN(64, 64)
         self.fused5 = Fused_IBN(64, 64, s=4)
-        self.ibn1 = Inverted_Bottleneck(64, 64, s=8)
 
         # Fourth block
         self.fused6 = Fused_IBN(64, 128, stride=2)
@@ -158,14 +157,12 @@ class MobileDetGPU(nn.Module):
         self.fused11 = Fused_IBN(128, 128)
         self.fused12 = Fused_IBN(128, 128)
         self.fused13 = Fused_IBN(128, 128)
-        self.ibn2 = Inverted_Bottleneck(128, 128, s=8)
 
         # Fifth block
-        self.fused14 = Fused_IBN(128, 128, s=4, stride=2)
-        self.fused15 = Fused_IBN(128, 128, s=4)
-        self.fused16 = Fused_IBN(128, 128, s=4)
-        self.fused17 = Fused_IBN(128, 128, s=4)
-        self.ibn3 = Inverted_Bottleneck(128, 256, s=8)
+        self.fused14 = Fused_IBN(128, 256, s=4, stride=2)
+        self.fused15 = Fused_IBN(256, 256, s=4)
+        self.fused16 = Fused_IBN(256, 256, s=4)
+        self.fused17 = Fused_IBN(256, 256, s=4)
 
     def forward(self, x):
 
@@ -189,7 +186,6 @@ class MobileDetGPU(nn.Module):
                 x = self.fused4(x)
                 x = self.fused5(x)
                 c1 = x
-                c1 = self.ibn1(c1)
 
                 # Fourth block
                 x = self.fused6(x)
@@ -202,7 +198,6 @@ class MobileDetGPU(nn.Module):
                 x = self.fused12(x)
                 x = self.fused13(x)
                 c2 = x
-                c2 = self.ibn2(c2)
 
                 # Fifth block
                 x = self.fused14(x)
@@ -210,7 +205,6 @@ class MobileDetGPU(nn.Module):
                 x = self.fused16(x)
                 x = self.fused17(x)
                 c3 = x
-                c3 = self.ibn3(c3)
         else:
             # First block
             x = self.conv1(x)
@@ -230,7 +224,6 @@ class MobileDetGPU(nn.Module):
             x = self.fused4(x)
             x = self.fused5(x)
             c1 = x
-            c1 = self.ibn1(c1)
 
             # Fourth block
             x = self.fused6(x)
@@ -243,7 +236,6 @@ class MobileDetGPU(nn.Module):
             x = self.fused12(x)
             x = self.fused13(x)
             c2 = x
-            c2 = self.ibn2(c2)
 
             # Fifth block
             x = self.fused14(x)
@@ -251,7 +243,6 @@ class MobileDetGPU(nn.Module):
             x = self.fused16(x)
             x = self.fused17(x)
             c3 = x
-            c3 = self.ibn3(c3)
 
         return c3, c2, c1
 

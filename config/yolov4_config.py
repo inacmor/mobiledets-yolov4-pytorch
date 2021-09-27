@@ -1,14 +1,9 @@
-
-
-
-
-
 # coding=utf-8
 
 # train
 TRAIN = {
     "PATH": "./data_train.txt",
-    "TRAIN_PATH": "./validation/train.txt",
+    "TRAIN_PATH": "./data/val/train.txt",
     "FREEZE": True,
     "TRAIN_IMG_SIZE": 416,
     "BATCH_SIZE": 4,
@@ -20,7 +15,7 @@ TRAIN = {
     "MOMENTUM": 0.9,
     "WEIGHT_DECAY": 0.0004,
     "LR_WARMUP": 0.001,
-    "LR_INIT": 0.00008,
+    "LR_INIT": 0.0001,
     "LR_END": 1e-6,
     "PRE_TRAIN": True,
     "PRE_TRAIN_W": './weights/pretrained/yolov4.pth',
@@ -30,7 +25,7 @@ TRAIN = {
 # val
 VAL = {
     "VAL_INDEX": 0.05,
-    "VAL_PATH": './validation/val.txt',
+    "VAL_PATH": './data/val/val.txt',
     "TEST_IMG_SIZE": 416,
     "BATCH_SIZE": 4,
     "NUMBER_WORKERS": 0,
@@ -72,8 +67,6 @@ DETECT = {
     "STRIDES": [8, 16, 32],
     "CLASS_PATH": './data/classes.txt',
     "WEIGHT_PATH": './weights/output/epoch300__loss0.61.pth',
-    "IMG_PATH": './devs/left24.jpg',
-    # "IMG_PATH": './tv/Test_I/JJ_none_none_none_train_p_day_20210417_11.jpg',
     "CONF_THRES": 0.5,
     "NMS_THRES": 0.5,
 }

@@ -159,22 +159,82 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.5):
     return keep_boxes, keep_cls
 
 
-def xyxy2xywh(boxes):
-    if len(boxes) == 0:
-        return boxes
-    else:
-        x1 = boxes[:, 0]
-        y1 = boxes[:, 1]
-        x2 = boxes[:, 2]
-        y2 = boxes[:, 3]
+def box_trans(b, mode, tn, i=False):
+    '''
+    :param b: box(es) which needs to be transfered to xyxy or xywh
+    :param mode: choose 'xyxytoxywh' or 'xywhtoxyxy'
+    :param tn: choose 't'(tensor) or 'n'(numpy)
+    :param i: choose False(float) or True(int)
+    :return: transfered box(es)
+    '''
+
+    # #check
+    if mode != 'xyxytoxywh' and mode != 'xywhtoxyxy':
+        print("mode error. please set mode to 'xyxytoxywh' or 'xywhtoxyxy'...")
+        return b
+
+    if tn != 't' and tn != 'n':
+        print("tn error. please set tn to 't' or 'n'...")
+        return b
+
+    if len(b[0, :]) != 4 and i == True:
+        print("cant concat float array to int array...")
+        return b
+
+    # if len(b[0, :]) != 4:
+    #     print("warning: box includes more than 4 positions, make sure i=False")
+
+    if mode == 'xyxytoxywh':
+        x1 = b[:, 0]
+        y1 = b[:, 1]
+        x2 = b[:, 2]
+        y2 = b[:, 3]
 
         w = x2 - x1
         h = y2 - y1
-
         x = x1 + w / 2
         y = y1 + h / 2
 
-        return np.stack((x, y, w, h), axis=-1)
+        if tn == 't':
+            n_b = torch.cat([x.unsqueeze(0), y.unsqueeze(0), w.unsqueeze(0), h.unsqueeze(0)], dim=0).T
+            n_b = n_b.float().to(b.device)
+            if i == True:
+                n_b = n_b.int()
+        else:
+            n_b = np.stack([x, y, w, h], axis=1)
+            if i == True:
+                n_b = n_b.astype(np.int)
+
+    else:
+
+        x = b[:, 0]
+        y = b[:, 1]
+        w = b[:, 2]
+        h = b[:, 3]
+
+        x1 = x - w / 2
+        y1 = y - h / 2
+        x2 = x + w / 2
+        y2 = y + h / 2
+
+        if tn == 't':
+            n_b = torch.cat([x1.unsqueeze(0), y1.unsqueeze(0), x2.unsqueeze(0), y2.unsqueeze(0)], dim=0).T
+            n_b = n_b.float().to(b.device)
+            if i == True:
+                n_b = n_b.int()
+        else:
+            n_b = np.stack([x1, y1, x2, y2], axis=1)
+            if i == True:
+                n_b = n_b.astype(np.int)
+
+    if len(b[0, :]) != 4:
+        if tn == 't':
+            n_b = torch.cat([n_b.clone(), b[:, 4:]], dim=1)
+            n_b = n_b.to(b.device)
+        else:
+            n_b = np.hstack([n_b.copy(), b[:, 4:]])
+
+    return n_b
 
 
 if __name__ == "__main__":

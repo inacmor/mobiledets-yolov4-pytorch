@@ -146,10 +146,10 @@ class CSPN(nn.Module):
         return output
 
 
-class Darknet53(nn.Module):
+class CSPDarknet53(nn.Module):
 
     def __init__(self, in_channels=3, top_channels=32, freeze=False):
-        super(Darknet53, self).__init__()
+        super(CSPDarknet53, self).__init__()
 
         # #冻结层
         self.freeze = freeze

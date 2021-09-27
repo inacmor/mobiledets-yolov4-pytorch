@@ -15,8 +15,9 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-from model.net.backbone import Conv_BN_Act, Darknet53
+from model.net.backbone import Conv_BN_Act, CSPDarknet53
 from model.net.mobiledet_gpu import MobileDetGPU
+from model.net.csp_mobiledets import CSPMobileDets
 
 
 class SPP(nn.Module):
@@ -220,7 +221,7 @@ class YOLOBODY(nn.Module):
     def __init__(self, in_channels, anchors, num_bbparas, num_classes, freeze=False):
         super(YOLOBODY, self).__init__()
 
-        self.backbone = MobileDetGPU(freeze=freeze)
+        self.backbone = CSPMobileDets(freeze=freeze)
         self.panup1 = PANUP1(in_channels)
         self.five_d32 = FiveStr(in_channels)
         self.outs1 = OUTPUT(in_channels // 2,

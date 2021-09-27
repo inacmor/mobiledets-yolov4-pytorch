@@ -16,6 +16,7 @@
 import torch.nn.functional as F
 import torch
 from utils.iou import iou_ignore, iou_loss
+from utils.yolo_utils import box_trans
 
 
 def smooth_label(ground_truth, label_smoothing):
@@ -68,20 +69,12 @@ def yolo4_loss(feats,
 
         object_mask = ground_truth[l][:, :, :, :, 4:5]
 
-        # 取出其对应的种类(m,19,19,3,80)
-        true_class_probs = ground_truth[l][..., 5:]
-
-        if label_smoothing:
-            true_class = smooth_label(true_class_probs, label_smoothing)
-
         pred_confi = feats[l][..., 4:5]
         pred_class = feats[l][..., 5:]
 
-        # #x = tx * wa - xa
         true_confi = ground_truth[l][..., 4].clone().unsqueeze(-1)
         true_class = ground_truth[l][..., 5:].clone()
 
-        # 这个是解码后的预测的box的位置
         # (m,19,19,3,4)
         pred_box = yolos[l][..., 0:4]
 
@@ -106,10 +99,6 @@ def yolo4_loss(feats,
                 best_iou = ignore_iou.max(dim=-1, keepdim=True)[0].squeeze().unsqueeze(-1)
 
                 ignore_mask[b, ...] = best_iou < ignore_thresh
-                # print("=============")
-                # print(ignore_mask[b, ...].size())
-                # print(ignore_mask[b, ...].sum())
-                # print("=============")
 
         box_loss_scale = (2. - ground_truth[l][..., 2] * ground_truth[l][..., 3]).unsqueeze(-1)
 

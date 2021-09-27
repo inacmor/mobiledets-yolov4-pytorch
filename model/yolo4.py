@@ -51,7 +51,7 @@ class YOLO4(nn.Module):
         feat3, yolo_3 = self.yolo_3(output[2])
 
         if self.inference:
-            return [feat1, feat2, feat3], torch.cat([yolo_1, yolo_2, yolo_3], dim=1)
+            return [feat1, feat2, feat3], torch.cat([yolo_1, yolo_2, yolo_3], dim=0)
         else:
             return [feat1, feat2, feat3], [yolo_1, yolo_2, yolo_3]
 

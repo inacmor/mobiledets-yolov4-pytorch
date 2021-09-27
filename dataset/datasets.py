@@ -172,12 +172,13 @@ def generate_groundtruth(labels, device, input_size, anchors, stride, num_classe
 
 # @torchsnooper.snoop()
 class YOLO4Dataset(Dataset):
-    def __init__(self, train_path, img_size, aug_paras, data_aug=True):
+    def __init__(self, train_path, img_size, aug_paras, data_aug=True, check=False):
 
         self.train_path = train_path
         self.img_paths = []
         self.labels = []
         self.label_length = []
+        self.check = check
 
         with open(train_path, "r") as p:
             while True:
@@ -229,19 +230,20 @@ class YOLO4Dataset(Dataset):
                               self.aug_paras["contrast"],
                               self.aug_paras["bri_low"],
                               self.aug_paras["bri_up"])
+                img = gasuss_noise(np.copy(img))
 
                 self.show_id += 1
 
-                im = img.copy()
-                box = boxes.astype('int32')
+                if self.check:
+                    im = img.copy()
+                    box = boxes.astype('int32')
 
-                for l in range(len(box)):
+                    for l in range(len(box)):
+                        cv2.rectangle(im, (box[l, 1], box[l, 2]), (box[l, 3], box[l, 4]), (0, 255, 0), 2)
+                        cv2.circle(im, (box[l, 1], box[l, 2]), 3, (255, 0, 0), 3)
+                        cv2.circle(im, (box[l, 3], box[l, 4]), 3, (255, 0, 0), 3)
 
-                    cv2.rectangle(im, (box[l, 1], box[l, 2]), (box[l, 3], box[l, 4]), (0, 255, 0), 2)
-                    cv2.circle(im, (box[l, 1], box[l, 2]), 3, (255, 0, 0), 3)
-                    cv2.circle(im, (box[l, 3], box[l, 4]), 3, (255, 0, 0), 3)
-
-                cv2.imwrite('./tttt/' + str(self.show_id) + '.jpg', im)
+                    cv2.imwrite('./trainset_check/' + str(self.show_id) + '.jpg', im)
 
             img = img / 255.
             new_image = torch.from_numpy(img).permute(2, 0, 1).float()

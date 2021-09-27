@@ -143,3 +143,25 @@ def background_cutmix(img, box, clips, index, batchsize):
     img[right_starty:right_starty + rig_shape[0], right_startx:right_startx + rig_shape[1], :] = right_c
 
     return img, clips
+
+def gasuss_noise(image, mean=0, var=0.001):
+
+    image = np.array(image/255, dtype=float)
+
+    noise = np.random.normal(mean, var ** 0.5, image.shape)
+
+    out = image + noise
+
+    if out.min() < 0:
+
+        low_clip = -1.
+
+    else:
+
+        low_clip = 0.
+
+    out = np.clip(out, low_clip, 1.0)
+
+    out = np.uint8(out*255)
+
+    return out
