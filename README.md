@@ -1,4 +1,5 @@
 # mobiledets-yolov4-pytorch
+# reach me by 862582838@qq.com. Welcome for communicating!
 This is an object detecting model based on yolov4.
 
 I replace the backbone to mobiledets:https://arxiv.org/abs/2004.14525.
