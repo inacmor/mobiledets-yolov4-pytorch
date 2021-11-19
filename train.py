@@ -13,12 +13,6 @@
 '''
 
 import torch
-import torchvision
-import torchvision.transforms as transforms
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.autograd import Variable
-import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
 from apex import amp
@@ -30,11 +24,9 @@ import sys
 from utils.yolo_utils import get_classes, get_anchors, Logger
 from dataset.datasets import YOLO4Dataset, generate_groundtruth, get_val
 from model.yolo4 import YOLO4
-from torch.utils.data.dataloader import DataLoader
 from config.yolov4_config import TRAIN, VAL, MODEL, LR, DA
 from model.loss import yolo4_loss
 from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR
-from utils.train_supports import initialize_train_model
 
 
 def get_inputs(freeze, frozen=False, apex_speedup=False):
@@ -72,7 +64,7 @@ def get_inputs(freeze, frozen=False, apex_speedup=False):
 
     val_index = VAL["VAL_INDEX"]
 
-    # #余弦退火超参
+    # #Cosine annealing
     t_0 = LR["T_0"]
     t_muti = LR["T_MUTI"]
 
@@ -214,11 +206,7 @@ def train(freeze, paras, loaders, model, backs, logger, draw=True, apex_speedup=
                 loss = yolo4_loss(feats,
                                   yolos,
                                   ground_truth,
-                                  anchors,
-                                  num_classes,
-                                  strides,
-                                  ignore_thresh=.5,
-                                  print_loss=False
+                                  ignore_thresh=.5
                                   )
 
                 val_loss = ((val_loss * batch_i + loss.item()) / (batch_i + 1))
@@ -253,10 +241,9 @@ def train(freeze, paras, loaders, model, backs, logger, draw=True, apex_speedup=
                 plt.ylim(0, 20)
 
                 plt.plot(show_epoch, show_loss)
-                # plt.scatter(show_epoch, show_loss, marker='o', s=3)
                 plt.show()
 
-        # #清除不必要的缓存
+        # #release unnessasery cache
         torch.cuda.empty_cache()
         end_time = time.time()
         logger.info("  ===cost time:{:.4f}s".format(end_time - start_time))

@@ -12,9 +12,6 @@
 
 '''
 
-import torch
-import os
-import time
 import cv2
 
 from utils.detect_supports import initialize_model, predict
@@ -35,7 +32,7 @@ if __name__ == "__main__":
 
         n_frame = predict(frame, model, device)
 
-        cv2.imshow('frame', frame)
+        cv2.imshow('frame', n_frame)
         if cv2.waitKey(3) & 0xFF == ord('q'):
             break
 

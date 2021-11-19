@@ -13,41 +13,24 @@
 '''
 
 import torch
-import torchvision
-import torchvision.transforms as transforms
-import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np
 import cv2
 import os
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.dataloader import DataLoader
 from utils.iou import iou_label
-from PIL import Image
 from utils.yolo_utils import generate_val
 from dataset.data_augmentation import *
 
 
 def resize_image(image, boxes, size):
-    '''
-    :param image: 原图片
-    :param boxes: (classes, x1y1x2y2) 标签框列表
-    :param size: yolo输入尺寸
-    :return:
-    '''
 
-    # #torch读取图片格式为(3, w, h)
-    # _, iw, ih = image.shape
-    # image = image.permute(1, 2, 0)
+    # #torch read imgs as format of (3, w, h)
     w = size
     h = size
     ih, iw, _ = image.shape
-    # new_image = cv2.resize(image, (w, h))
-    # #normalized (0, 1)
 
     new_image = cv2.resize(image, (size, size))
-
-    # image_paded[dh: size + dh, dw: size + dw, :] = new_image
 
     w_scale = w / iw
     h_scale = h / ih
@@ -65,14 +48,6 @@ def resize_image(image, boxes, size):
 
 
 def generate_groundtruth(labels, device, input_size, anchors, stride, num_classes, anchor_thre=0.3):
-    '''
-    :param true_boxes:=list 包含每个batch中，由标签转化的框参数(classes, x1, y1, x2, y2)
-    :param input_size: yolo网络输入尺寸
-    :param anchors:=(3, 3, 2) 聚类的锚框尺寸
-    :param stride:=(3) 降维步长
-    :param num_classes:类别数量
-    :return:
-    '''
 
     with torch.no_grad():
         num_anchors = len(anchors)
@@ -145,10 +120,10 @@ def generate_groundtruth(labels, device, input_size, anchors, stride, num_classe
                         ground_truth[2 - l][b, y_index[i, l], x_index[i, l], iou_mask[i, :], 0:4] = true_box[i,
                                                                                                     0:4] / input_size
 
-                        # #配置confidence
+                        # #apply confidence
                         ground_truth[2 - l][b, y_index[i, l], x_index[i, l], iou_mask[i, :], 4] = 1.
 
-                        # #配置classes
+                        # #apply classes
                         cls = true_boxes[i, 0]
                         cls_pre = torch.zeros(size=(1, int(cls)), dtype=torch.float)
                         cls_pas = torch.zeros(size=(1, num_classes - int(cls) - 1), dtype=torch.float)
@@ -157,20 +132,8 @@ def generate_groundtruth(labels, device, input_size, anchors, stride, num_classe
 
                         ground_truth[2 - l][b, y_index[i, l], x_index[i, l], iou_mask[i, :], 5:] = cls_sum
 
-                    # print("~~~~~~~~~~~~~")
-                    # print(i)
-                    # print(l)
-                    # print(x_index[i, l])
-                    # print(y_index[i, l])
-                    # print(iou_mask[i, :])
-                    # print(true_box[i, 0:4] / stride[l])
-                    # print(input_size)
-                    # print(ground_truth[2 - l][b, y_index[i, l], x_index[i, l], iou_mask[i, :], :])
-                    # print("~~~~~~~~~~~~~")
-
     return ground_truth
 
-# @torchsnooper.snoop()
 class YOLO4Dataset(Dataset):
     def __init__(self, train_path, img_size, aug_paras, data_aug=True, check=False):
 
@@ -209,12 +172,7 @@ class YOLO4Dataset(Dataset):
     def __getitem__(self, index):
 
         img_path = self.img_paths[index % len(self.img_paths)].rstrip()
-        # img = transforms.ToTensor()(Image.open(img_path).convert('RGB'))
         img = cv2.imread(img_path)
-        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32)
-
-        # img = transforms.ToTensor()(cv2.imread(img_path))
-        # #使用cv2读取图像数据可能会报错
 
         if len(img.shape) != 3:
             img = img.unsqueeze(0)
@@ -245,6 +203,7 @@ class YOLO4Dataset(Dataset):
 
                     cv2.imwrite('./trainset_check/' + str(self.show_id) + '.jpg', im)
 
+            # #normalized (0, 1)
             img = img / 255.
             new_image = torch.from_numpy(img).permute(2, 0, 1).float()
             new_boxes = torch.from_numpy(boxes).view(1, -1)
@@ -256,45 +215,13 @@ class YOLO4Dataset(Dataset):
 
     def collate_fn(self, batch):
 
+        # #to training muti-objects
         paths, imgs, labels = list(zip(*batch))
         imgs = torch.stack([img for img in imgs])
         return paths, imgs, labels
 
     def __len__(self):
-        # #该函数定义dataloader输出长度，若长度大于样本数，则重复之前输出
         return len(self.img_paths)
-
-
-class DETECT_IMG(Dataset):
-    def __init__(self, img_path, img_size):
-        self.img_path = img_path
-        self.img_size = img_size
-
-    def __getitem__(self, index):
-
-        img_path = self.img_path
-        # img = transforms.ToTensor()(Image.open(img_path).convert('RGB'))
-        img = cv2.imread(img_path)
-        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32)
-
-        if img.shape[0] > img.shape[1]:
-            trans = False
-        else:
-            trans = False
-
-        img = torch.from_numpy(img)
-        boxes = []
-
-        if len(img.shape) != 3:
-            img = img.unsqueeze(0)
-            img = img.expand((3, img.shape[1:]))
-
-        new_img, _ = resize_image(img, boxes, size=self.img_size, trans=trans)
-
-        return img_path, new_img
-
-    def __len__(self):
-        return 1
 
 
 def get_val(path,
@@ -333,44 +260,3 @@ def get_val(path,
                                 )
 
     return train_dataloader, val_dataloader
-
-
-if __name__ == "__main__":
-
-    imgg = cv2.imread('./cor_4.jpg')
-    test = False
-    b1 = np.loadtxt('./label_draft.txt').reshape(-1, 5)
-    b2 = np.loadtxt('./label_draft2.txt').reshape(-1, 5)
-
-    _, t_b1 = resize_image(imgg, b1, size=608)
-    _, t_b2 = resize_image(imgg, b2, size=608)
-
-    t_b = (t_b1, t_b2)
-
-    anchors = torch.tensor([[[93,93],
-                             [95,96],
-                             [99,98]],
-                            [[102,101],
-                             [106,106],
-                             [108,108]],
-                            [[113,112],
-                             [119,119],
-                             [131,130]]])
-    stride = torch.tensor([8., 16., 32.])
-
-    # print(t_b1.dtype)
-
-    gt = generate_groundtruth(t_b,
-                              input_size=608,
-                              anchors=anchors,
-                              stride=stride,
-                              num_classes=20)
-
-    # print(gt[0].size())
-    # print(gt[1].size())
-    # print(gt[2].size())
-
-
-
-
-

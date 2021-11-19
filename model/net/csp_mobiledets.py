@@ -1,5 +1,4 @@
 import torch
-import time
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -8,11 +7,6 @@ from model.net.backbone import Conv_BN_Act
 
 
 # from mish_cuda import MishCuda as Mish
-
-# class hswish(nn.Module):
-#     def forward(self, x):
-#         out = x * F.relu6(x + 3, inplace=True) / 6
-#         return out
 
 # #if mish_cuda is not avalible try whats below
 class Mish(nn.Module):

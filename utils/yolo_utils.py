@@ -15,9 +15,7 @@
 import numpy as np
 import torch
 import logging
-import time
 from utils.iou import iou_nms
-import math
 
 
 def get_classes(path):
@@ -55,19 +53,19 @@ def get_anchors(anchor_path):
 
 class Logger(object):
     def __init__(self, log_file_name, log_level=logging.DEBUG):
-        # #创建一个logger
+        # #create logger
         self.__logger = logging.getLogger()
         self.__logger.setLevel(log_level)
-        # #创建一个handle，将内容写入日志文件
+        # #create handle，将内容写入日志文件
         file_handler = logging.FileHandler(log_file_name)
         console_handler = logging.StreamHandler()
-        # #定义handle格式
+        # #define handle format
         formatter = logging.Formatter(
             "[%(asctime)s]-[%(filename)s line:%(lineno)d]:%(message)s "
         )
         file_handler.setFormatter(formatter)
         console_handler.setFormatter(formatter)
-        # #给handle添加内容
+
         self.__logger.addHandler(file_handler)
         self.__logger.addHandler(console_handler)
 
@@ -101,43 +99,33 @@ def generate_val(path, train_path, val_path, val_index, epochs):
 
 
 def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.5):
-    '''
-    :param prediction: yolov4输出结果，包含3维度的列表
-    :param conf_thres:
-    :param nms_thres:
-    :return:
-    '''
 
     device = prediction[0].device
 
     prediction = prediction[prediction[..., 4] >= conf_thres]
 
     if prediction[:, 3].size(0) == 0:
-        print("未检测到目标...")
+        print("no obj...")
         return [], []
 
-    # Object confidence times class confidence
     score = prediction[:, 4] * prediction[:, 5:].max(1)[0].to(device)
-    # 由小到大排序
+    # #sort
     prediction = prediction[(-score).argsort()]
     class_confs, class_preds = prediction[:, 5:].max(1, keepdim=True)
-    # #class_confs为类预测中最大的概率
-    # #class_preds为最大概率的索引
     detections = torch.cat((prediction[:, :5], class_confs.float(), class_preds.float()), 1).to(device)
 
-    # Perform non-maximum suppression
     keep_boxes = []
     keep_cls = []
     while detections.size(0):
-        # #提取最优score，并从detection移除之
+        # #get the best score，and delete it from detection
         best_box = detections[0, :4].unsqueeze(0)
         keep_boxes.append(best_box)
         keep_cls.append(detections[0, 6].unsqueeze(0))
         detections = detections[1:, ...]
 
-        # #计算与最大值的iou，并标记iou<nms_thres
+        # #calculate diou, and mark which`s iou<nms_thres
         nms_mask = iou_nms(best_box, detections[:, :4]) < nms_thres
-        # #保留iou<nms_thres
+        # #keep whats iou<nms_thres
         detections = torch.masked_select(detections, nms_mask.squeeze().unsqueeze(-1).repeat(1, 7))
         detections = detections.view(-1, 7)
 
@@ -180,9 +168,6 @@ def box_trans(b, mode, tn, i=False):
     if len(b[0, :]) != 4 and i == True:
         print("cant concat float array to int array...")
         return b
-
-    # if len(b[0, :]) != 4:
-    #     print("warning: box includes more than 4 positions, make sure i=False")
 
     if mode == 'xyxytoxywh':
         x1 = b[:, 0]
@@ -235,11 +220,3 @@ def box_trans(b, mode, tn, i=False):
             n_b = np.hstack([n_b.copy(), b[:, 4:]])
 
     return n_b
-
-
-if __name__ == "__main__":
-
-    c = get_classes('./test/classes.txt')
-    print(c)
-
-

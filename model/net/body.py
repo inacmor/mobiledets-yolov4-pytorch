@@ -16,7 +16,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 from model.net.backbone import Conv_BN_Act, CSPDarknet53
-from model.net.mobiledet_gpu import MobileDetGPU
 from model.net.csp_mobiledets import CSPMobileDets
 
 
@@ -28,7 +27,7 @@ class SPP(nn.Module):
         self.spp_head = Conv_BN_Act(in_channels, in_channels // 2,
                                     kernel_size=1, stride=1, activation='leaky')
 
-        # #SPP层
+        # #SPP
         self.spp_body1 = nn.MaxPool2d(kernel_size=13, stride=1, padding=13 // 2)
         self.spp_body2 = nn.MaxPool2d(kernel_size=9, stride=1, padding=9 // 2)
         self.spp_body3 = nn.MaxPool2d(kernel_size=5, stride=1, padding=5 // 2)
@@ -44,7 +43,6 @@ class SPP(nn.Module):
 
         return output
 
-# @torchsnooper.snoop()
 class FiveStr(nn.Module):
 
     def __init__(self, inchannels):
@@ -68,7 +66,6 @@ class FiveStr(nn.Module):
 
         return x
 
-# @torchsnooper.snoop()
 class OUTPUT(nn.Module):
 
     def __init__(self, in_channels, per_anchors, outs):
@@ -84,7 +81,6 @@ class OUTPUT(nn.Module):
 
         return x
 
-# @torchsnooper.snoop()
 class UPSAMPLE(nn.Module):
 
     def __init__(self, in_channels):
@@ -99,7 +95,6 @@ class UPSAMPLE(nn.Module):
 
         return x
 
-# @torchsnooper.snoop()
 class DOWNSAMPLE(nn.Module):
 
     def __init__(self, in_channels):
@@ -112,7 +107,6 @@ class DOWNSAMPLE(nn.Module):
 
         return x
 
-# @torchsnooper.snoop()
 class PANUP1(nn.Module):
 
     def __init__(self, in_channels):
@@ -146,7 +140,6 @@ class PANUP1(nn.Module):
 
         return x, up_output
 
-# @torchsnooper.snoop()
 class PANUP2(nn.Module):
 
     def __init__(self, in_channels):
@@ -171,7 +164,6 @@ class PANUP2(nn.Module):
 
         return x, up_output
 
-# @torchsnooper.snoop()
 class PANDOWN1(nn.Module):
 
     def __init__(self, in_channels):
@@ -193,7 +185,6 @@ class PANDOWN1(nn.Module):
 
         return x, down1_input
 
-# @torchsnooper.snoop()
 class PANDOWN2(nn.Module):
 
     def __init__(self, in_channels):
@@ -215,7 +206,6 @@ class PANDOWN2(nn.Module):
         return x, down2_output
 
 
-# @torchsnooper.snoop()
 class YOLOBODY(nn.Module):
 
     def __init__(self, in_channels, anchors, num_bbparas, num_classes, freeze=False):

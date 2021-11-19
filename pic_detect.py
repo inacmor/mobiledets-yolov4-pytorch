@@ -12,9 +12,7 @@
 
 '''
 
-import torch
 import os
-import time
 import cv2
 
 from utils.detect_supports import predict, initialize_model
@@ -28,7 +26,7 @@ if __name__ == "__main__":
 
     for l, n in enumerate(list):
 
-        if l == 0:
+        if n == 'detect_results':
             continue
 
         path = './pics/' + list[l]
@@ -36,7 +34,7 @@ if __name__ == "__main__":
 
         detected_img = predict(img, model, device)
 
-        cv2.imwrite('./pics/detect_results/' + n + '.jpg', detected_img)
+        cv2.imwrite('./pics/detect_results/' + n, detected_img)
 
 
 

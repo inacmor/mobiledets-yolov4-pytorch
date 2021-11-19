@@ -13,11 +13,8 @@
 '''
 
 
-import numpy as np
 import torch
 import math
-import cv2
-
 
 def xywh_xyxy(box, mode):
     if mode == 'xywh_to_xyxy':
@@ -79,7 +76,6 @@ def cal_iou(b1, b2, device, Diou=False, Ciou=False, detail=False):
     b2_mins = b2_xy - b2_wh_half
     b2_maxes = b2_xy + b2_wh_half
 
-    # 计算重合面积
     intersect_mins = torch.max(b1_mins, b2_mins)
     intersect_maxes = torch.min(b1_maxes, b2_maxes)
     zero = torch.zeros_like(intersect_maxes)
@@ -90,17 +86,12 @@ def cal_iou(b1, b2, device, Diou=False, Ciou=False, detail=False):
     iou = intersect_area / torch.max(b1_area + b2_area - intersect_area, eps)
 
     if Diou or Ciou:
-        # 计算中心的差距
         center_distance = torch.sum((b1_xy - b2_xy).pow(2), dim=-1)
-        # 找到包裹两个框的最小框的左上角和右下角
         enclose_mins = torch.min(b1_mins, b2_mins)
         enclose_maxes = torch.max(b1_maxes, b2_maxes)
         enclose_wh = torch.max(enclose_maxes - enclose_mins, zero)
-        # 计算对角线距离
         enclose_diagonal = torch.sum(enclose_wh.pow(2), dim=-1).to(device)
         rd = center_distance / torch.max(enclose_diagonal, eps)
-        # re_w = torch.sqrt(torch.abs(b1[..., 2].pow(2) - b2[..., 2].pow(2))) / enclose_wh[..., 0]
-        # re_h = torch.sqrt(torch.abs(b1[..., 3].pow(2) - b2[..., 3].pow(2))) / enclose_wh[..., 1]
 
         diou = iou - rd
 
@@ -125,12 +116,8 @@ def iou_ignore(b1, b2, device, Diou=False, Ciou=False):
     :param b2: true_box=(1, n, 4)
     :return:iou/diou/ciou
     """
-    # 19,19,3,1,4
-    # 计算左上角的坐标和右下角的坐标
     b1 = b1.unsqueeze(-2)
 
-    # 1,n,4
-    # 计算左上角和右下角的坐标
     b2 = b2.unsqueeze(0)
 
     output = cal_iou(b1, b2, device, Diou, Ciou)
@@ -180,18 +167,7 @@ def iou_nms(b1, b2, Diou=False):
     device = b1.device
     Ciou = False
 
-    # 1, 4
-    # 计算左上角的坐标和右下角的坐标
     b1 = b1.unsqueeze(1)
     output = cal_iou(b1, b2, device, Diou, Ciou)
     return output.squeeze()
-
-
-if __name__ == "__main__":
-
-    b1 = torch.tensor([[3.5, 1.5, 1, 3]])
-    b2 = torch.tensor([[2.5, 0.5, 3, 1]])
-    # a = torch.rand(size=(19, 19, 3, 4))
-    # b = torch.rand(size=(1, 20, 4))
-    c = cal_iou(b1, b2, device=b1.device, Ciou=True)
 

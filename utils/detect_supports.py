@@ -13,11 +13,7 @@
 '''
 
 import torch
-import os
-import time
 import cv2
-import numpy as np
-
 
 from model.yolo4 import YOLO4
 from config.yolov4_config import DETECT
@@ -68,18 +64,16 @@ def predict(img, model, device):
         return detected_img
 
     else:
-        print("未检测到目标...")
+        print("no obj...")
         return img
 
 
 def initialize_model():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # device = torch.device("cpu")
 
     anchors = get_anchors(DETECT["ANCHOR_PATH"]).to(device)
     strides = torch.tensor(DETECT["STRIDES"]).to(device)
-    # train_img_size = TRAIN["TRAIN_IMG_SIZE"]
     class_names = get_classes(DETECT["CLASS_PATH"])
     num_classes = len(class_names)
 
@@ -95,7 +89,6 @@ def initialize_model():
                   freeze=False,
                   inference=True
                   ).to(device)
-    # model = Build_Model(weight_path=weights_path).to(device)
 
     model.load_state_dict(torch.load(weights_path), True)
 

@@ -48,12 +48,6 @@ class YOLO_head(nn.Module):
                                output_size,
                                output_size
                                ).permute(0, 3, 4, 1, 2)
-        # feature = feature.view(self.batch_size,
-        #                        self.num_anchors,
-        #                        self.num_bbparas + 1 + self.num_classes,
-        #                        output_size,
-        #                        output_size
-        #                        ).permute(0, 3, 4, 1, 2)
 
         feature_de = self.decoding_normal(feature.clone())
 
@@ -87,8 +81,6 @@ class YOLO_head(nn.Module):
 
         pred_xy = (torch.sigmoid(raw_dxy) + grid_xy) / output_size
         pred_wh = (torch.exp(raw_dwh) * anchors / output_size).float()
-        # pred_xy = (torch.sigmoid(raw_dxy) + grid_xy) * self.stride
-        # pred_wh = (torch.exp(raw_dwh) * anchors * self.stride).float()
         pred_confi = torch.sigmoid(raw_confi)
         pred_class = torch.sigmoid(raw_class)
         pred_boxes = torch.cat([pred_xy, pred_wh, pred_confi, pred_class], dim=-1)
