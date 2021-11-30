@@ -252,6 +252,12 @@ def train(freeze, paras, loaders, model, backs, logger, draw=True, apex_speedup=
 
 if __name__ == "__main__":
 
+    path = './weights/'
+    if not os.path.exists(path):
+        os.makedirs(path)
+        os.makedirs(path + '/output')
+        os.makedirs(path + '/pretrained')
+
     freeze = TRAIN["FREEZE"]
     log_file = MODEL["LOG_PATH"] + 'logs.txt'
     logger = Logger(log_file).get_log()
