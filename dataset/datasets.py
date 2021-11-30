@@ -253,7 +253,7 @@ def get_val(path,
                                   )
     val_dataloader = DataLoader(val_dataset,
                                 batch_size=batch_size,
-                                shuffle=True,
+                                shuffle=False,
                                 num_workers=num_workers,
                                 pin_memory=True,
                                 collate_fn=val_dataset.collate_fn

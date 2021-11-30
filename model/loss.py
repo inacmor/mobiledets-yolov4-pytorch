@@ -85,7 +85,7 @@ def yolo4_loss(feats,
         confi_loss = object_mask * bce_loss(pred_confi, true_confi) + \
                      (1 - object_mask) * ignore_mask * bce_loss(pred_confi, true_confi)
 
-        class_loss = object_mask * bce_loss(torch.sigmoid(pred_class), true_class)
+        class_loss = object_mask * bce_loss(pred_class, true_class)
 
         confidence_loss = torch.sum(confi_loss) / m
         class_loss = torch.sum(class_loss) / m

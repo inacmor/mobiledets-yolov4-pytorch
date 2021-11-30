@@ -104,7 +104,7 @@ def get_inputs(freeze, frozen=False, apex_speedup=False):
                                                )
 
     if freeze:
-        scheduler = StepLR(optimizer, step_size=(epochs * (len(train_dataloader) - 2)), gamma=0.1)
+        scheduler = StepLR(optimizer, step_size=(epochs // 2), gamma=0.1)
     else:
         scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=t_0, T_mult=t_muti)
 
@@ -157,11 +157,7 @@ def train(freeze, paras, loaders, model, backs, logger, draw=True, apex_speedup=
             loss = yolo4_loss(feats,
                               yolos,
                               ground_truth,
-                              anchors,
-                              num_classes,
-                              strides,
                               ignore_thresh=.5,
-                              print_loss=False
                               )
 
             if apex_speedup:
@@ -236,9 +232,6 @@ def train(freeze, paras, loaders, model, backs, logger, draw=True, apex_speedup=
                 show_epoch.append(epoch)
 
                 plt.cla()
-
-                plt.xlim(0, epochs)
-                plt.ylim(0, 20)
 
                 plt.plot(show_epoch, show_loss)
                 plt.show()

@@ -40,6 +40,7 @@ def convert_annotation(anno_path='./data/Annotations/', saved_path='data_train.t
             root = tree.getroot()
 
             name = root.find('filename').text
+            bs = ' '
             for obj in root.iter('object'):
                 cls = obj.find('name').text
                 if cls not in classes:
@@ -52,9 +53,12 @@ def convert_annotation(anno_path='./data/Annotations/', saved_path='data_train.t
                      int(float(xmlbox.find('ymin').text)),
                      int(float(xmlbox.find('xmax').text)),
                      int(float(xmlbox.find('ymax').text)))
-                sf.write(wd + "/data/Imgs/" + name + ' ' + ",".join([str(a) for a in b]) + ',' + str(cls_id))
-                sf.write('\n')
-                w_id += 1
+                bs = bs + ' ' + ','.join([str(a) for a in b]) + ',' + str(cls_id)
+
+            sf.write(wd + "/data/Imgs/" + name + bs[1:])
+            # sf.write(wd + "/data/Imgs/" + name + ' ' + ",".join([str(a) for a in b]) + ',' + str(cls_id))
+            sf.write('\n')
+            w_id += 1
         sf.close()
 
     print("apllied %s" % w_id + " annotations")
