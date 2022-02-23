@@ -165,3 +165,48 @@ def gasuss_noise(image, mean=0, var=0.001):
     out = np.uint8(out*255)
 
     return out
+    
+def random_crop_resize(img, boxes, r=2):
+    boxes = boxes.astype(np.int)
+
+    h, w, _ = img.shape
+
+    limit_l = boxes[:, 1].max()
+    limit_t = boxes[:, 2].max()
+    limit_r = boxes[:, 3].max()
+    limit_b = boxes[:, 4].max()
+
+    if random.random() > 0.2:
+
+        cut_l = random.randint(0, limit_l) // r
+
+        img = img[:, cut_l:w, :]
+        boxes[:, 1] -= cut_l
+        boxes[:, 3] -= cut_l
+
+    if random.random() > 0.2:
+        cut_t = random.randint(0, limit_t) // r
+
+        img = img[cut_t:h, ...]
+        boxes[:, 2] -= cut_t
+        boxes[:, 4] -= cut_t
+
+    if random.random() > 0.2:
+        cut_r = random.randint(0, w - limit_r) // r
+
+        img = img[:, 0:w - cut_r, :]
+
+    if random.random() > 0.2:
+        cut_b = random.randint(0, h - limit_b) // r
+
+        img = img[0:h - cut_b, ...]
+
+    boxes[:, 1] = boxes[:, 1] * (w / img.shape[1])
+    boxes[:, 2] = boxes[:, 2] * (h / img.shape[0])
+    boxes[:, 3] = boxes[:, 3] * (w / img.shape[1])
+    boxes[:, 4] = boxes[:, 4] * (h / img.shape[0])
+    # boxes = boxes.astype(np.int)
+
+    img = cv2.resize(img, (h, w))
+
+    return img, boxes
