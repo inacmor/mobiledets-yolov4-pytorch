@@ -13,8 +13,8 @@ I replace the backbone to mobiledets:https://arxiv.org/abs/2004.14525.
 - step5: run 'python train.py'.
 
 ---Inference---
-- step1: put your testset in data/Test_I.
-- (if pictures)step2: run 'python pic_detect.py';You can find the results in./devs.
+- step1: put your testset in devs.
+- (if pictures)step2: run 'python pic_detect.py';You can find results in devs/detect_results.
 - (if videos)step2: run 'python vision_test.py'.
 
 ---requirement---
